@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: make test
+
+      - name: Build the app (arm64 + x86_64)
+        run: make all
+
+      - name: Check the bundle
+        run: |
+          lipo -info build/OpenTreadmill.app/Contents/MacOS/OpenTreadmill
+          codesign --verify --verbose build/OpenTreadmill.app
+          plutil -lint Resources/Info.plist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenTreadmill-${{ github.sha }}
+          path: build/OpenTreadmill.app
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck scripts/*.sh

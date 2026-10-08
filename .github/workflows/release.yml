@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches the app version
+        run: test "v$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)" = "$GITHUB_REF_NAME"
+
+      - name: Test, build and pack
+        run: |
+          make test
+          make dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<NOTES
+          Universal build for Apple Silicon and Intel, macOS 14 or later.
+
+          1. Unzip \`OpenTreadmill-${GITHUB_REF_NAME#v}.zip\`.
+          2. In Terminal, run \`./install.sh\` from the unzipped folder.
+          3. Allow **Bluetooth** when macOS asks.
+
+          The app is ad-hoc signed, not notarized: \`install.sh\` removes the quarantine flag for you.
+          After an update macOS asks for the Bluetooth permission again.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" build/OpenTreadmill-*.zip \
+            --title "OpenTreadmill ${GITHUB_REF_NAME#v}" --notes-file notes.md --generate-notes
